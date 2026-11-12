@@ -20,10 +20,12 @@ app = App(
     oauth_flow=oauth_flow
 )
 
-# 3. Define your /pagespeed command logic (works for any installed workspace)
-@app.command("/pagespeed")
-def handle_pagespeed(ack, command, respond):
+# 3. Define the instant acknowledgment function (prevents Slack timeout)
+def acknowledge_command(ack):
     ack()
+
+# 4. Define the background worker for your PageSpeed logic
+def run_pagespeed_analysis(command, respond):
     text = command.get("text", "").strip().split()
     if not text:
         respond("❌ Please provide a URL. Usage: `/pagespeed https://example.com [runs]`")
@@ -81,7 +83,13 @@ def handle_pagespeed(ack, command, respond):
         }
     ])
 
-# 4. Wrap with FastAPI
+# Register the command using ack + lazy listeners
+app.command("/pagespeed")(
+    ack=acknowledge_command,
+    lazy=[run_pagespeed_analysis]
+)
+
+# 5. Wrap with FastAPI
 api = FastAPI()
 handler = AsyncSlackRequestHandler(app)
 
